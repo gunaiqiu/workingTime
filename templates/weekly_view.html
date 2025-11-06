@@ -61,7 +61,7 @@
                                         <br>
                                         <small>{{ ['一','二','三','四','五','六','日'][date.weekday()] }}</small>
                                     </td>
-                                    <td class="align-middle text-center" rowspan="{{ morning_rows }}">上午</td>
+                                    <td class="align-middle text-center text-primary" rowspan="{{ morning_rows }}">上午</td>
                                 {% endif %}
                                 <td>{{ record.hours }}h</td>
                                 <td>{{ record.project_name }}</td>
@@ -89,7 +89,7 @@
                                     <br>
                                     <small>{{ ['一','二','三','四','五','六','日'][date.weekday()] }}</small>
                                 </td>
-                                <td class="align-middle text-center">上午</td>
+                                <td class="align-middle text-center text-primary">上午</td>
                                 <td colspan="3" class="text-center">
                                     <span class="text-muted">无记录</span>
                                 </td>
@@ -100,7 +100,7 @@
                         {% for record in afternoon_records %}
                             <tr class="{{ 'table-active' if date == today }}">
                                 {% if loop.first %}
-                                    <td class="align-middle text-center" rowspan="{{ afternoon_rows }}">下午</td>
+                                    <td class="align-middle text-center text-success" rowspan="{{ afternoon_rows }}">下午</td>
                                 {% endif %}
                                 <td>{{ record.hours }}h</td>
                                 <td>{{ record.project_name }}</td>
@@ -123,7 +123,7 @@
                             </tr>
                         {% else %}
                             <tr class="{{ 'table-active' if date == today }}">
-                                <td class="align-middle text-center">下午</td>
+                                <td class="align-middle text-center text-success">下午</td>
                                 <td colspan="3" class="text-center">
                                     <span class="text-muted">无记录</span>
                                 </td>
