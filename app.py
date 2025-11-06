@@ -16,7 +16,15 @@ app = Flask(__name__, instance_relative_config=True)
 app.config['SECRET_KEY'] = os.environ['FLASK_SECRET_KEY']
 
 # 数据库配置
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['MYSQL_DATABASE_URL'].replace('mysql://', 'mysql+pymysql://')
+# 从环境变量获取数据库连接信息
+DB_USER = os.environ['MYSQL_USER']
+DB_PASS = os.environ['MYSQL_PASSWORD']
+DB_HOST = os.environ['MYSQL_HOST']
+DB_PORT = os.environ['MYSQL_PORT']
+DB_NAME = os.environ['MYSQL_DATABASE']
+
+# 构建数据库 URI
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_size': 10,

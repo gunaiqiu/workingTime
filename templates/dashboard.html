@@ -133,13 +133,13 @@
 {% block extra_js %}
 <script type="text/javascript">
 // 用户时区设置
-var userTimezone = "{{ current_user.timezone }}";
-var timerInterval;
-var startTime;
+const userTimezone = "{{ current_user.timezone }}";
+let timerInterval;
+let startTime;
 
 // 格式化时间函数 
 function formatDateTime(date) {
-    var options = {
+    const options = {
         timeZone: userTimezone,
         year: 'numeric',
         month: '2-digit',
@@ -154,70 +154,69 @@ function formatDateTime(date) {
 
 // 更新时间显示
 function updateCurrentTime() {
-    var now = new Date();
-    var timeDisplay = document.getElementById('current-time');
+    const now = new Date();
+    const timeDisplay = document.getElementById('current-time');
     timeDisplay.textContent = formatDateTime(now);
 }
 
-// 计时器相关函数
-function startTimer() {
-    startTime = new Date();
-    timerInterval = setInterval(updateTimer, 1000);
-}
-
-function stopTimer() {
-    clearInterval(timerInterval);
-}
-
+// 更新计时器显示
 function updateTimer() {
-    var now = new Date();
-    var diff = now - startTime;
-    var hours = Math.floor(diff / 3600000);
-    var minutes = Math.floor((diff % 3600000) / 60000);
-    var seconds = Math.floor((diff % 60000) / 1000);
+    const now = new Date();
+    const diff = now - startTime;
+    const hours = Math.floor(diff / 3600000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
+    const seconds = Math.floor((diff % 60000) / 1000);
     
     document.getElementById('timeElapsed').textContent = 
-        hours.toString().padStart(2, '0') + ':' + 
-        minutes.toString().padStart(2, '0') + ':' + 
-        seconds.toString().padStart(2, '0');
+        `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    document.getElementById('timeElapsed').classList.add('timer-ongoing');
 }
 
-// 处理开始计时的函数
-function startTimerAction(button) {
-    var projectName = document.getElementById('project_name').value;
-    
+// 开始工作
+function startWork() {
+    const projectName = document.getElementById('project_name').value;
+    const description = document.getElementById('description').value;
+
     if (!projectName) {
         alert('请输入工作内容');
         return;
     }
-    
-    fetch('/start_timer', {
+
+    fetch('/start_work', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Type': 'application/json',
         },
-        body: 'project_name=' + encodeURIComponent(projectName)
+        body: JSON.stringify({
+            project_name: projectName,
+            description: description
+        })
     })
-    .then(function(response) {
-        return response.json();
-    })
-    .then(function(data) {
+    .then(response => response.json())
+    .then(data => {
         if (data.status === 'success') {
-            startTimer();
-            button.textContent = '停止计时';
-            button.dataset.action = 'stop';
-            button.classList.replace('btn-primary', 'btn-danger');
+            startTime = new Date(data.start_time);
             document.getElementById('project_name').disabled = true;
             document.getElementById('timerDisplay').style.display = 'block';
+            document.getElementById('descriptionContainer').style.display = 'block';
+            updateTimer();
+            timerInterval = setInterval(updateTimer, 1000);
+            
+            const button = document.getElementById('timerButton');
+            button.textContent = '结束工作';
+            button.dataset.action = 'stop';
+            button.classList.replace('btn-primary', 'btn-danger');
+        } else {
+            alert(data.message || '开始工作失败');
         }
     });
 }
 
-// 处理保存的函数
-function handleSave(button) {
-    var description = document.getElementById('description').value;
+// 结束工作
+function endWork() {
+    const description = document.getElementById('description').value;
     
-    fetch('/stop_timer', {
+    fetch('/end_work', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -226,26 +225,27 @@ function handleSave(button) {
             description: description
         })
     })
-    .then(function(response) {
-        return response.json();
-    })
-    .then(function(data) {
+    .then(response => response.json())
+    .then(data => {
         if (data.status === 'success') {
-            stopTimer();
-            button.textContent = '开始计时';
-            button.dataset.action = 'start';
-            button.classList.replace('btn-danger', 'btn-primary');
+            clearInterval(timerInterval);
             document.getElementById('project_name').disabled = false;
             document.getElementById('project_name').value = '';
+            document.getElementById('description').value = '';
             document.getElementById('timerDisplay').style.display = 'none';
             document.getElementById('descriptionContainer').style.display = 'none';
-            document.getElementById('description').value = '';
-            window.location.reload();
+            
+            const button = document.getElementById('timerButton');
+            button.textContent = '开始工作';
+            button.dataset.action = 'start';
+            button.classList.replace('btn-danger', 'btn-primary');
+            
+            window.location.reload();  // 刷新页面以显示新记录
         } else {
-            alert('保存失败：' + (data.message || '未知错误'));
+            alert(data.message || '结束工作失败');
         }
     })
-    .catch(function(error) {
+    .catch(error => {
         console.error('Error:', error);
         alert('保存失败，请重试');
     });
@@ -277,17 +277,13 @@ function deleteRecord(id) {
 
 // 删除按钮事件监听
 document.addEventListener('DOMContentLoaded', function() {
+    // 删除按钮事件监听
     document.querySelectorAll('.delete-record').forEach(button => {
         button.addEventListener('click', function() {
             const id = this.dataset.id;
             deleteRecord(id);
         });
     });
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-    let timerInterval;
-    let startTime;
 
     // 每秒更新时间
     setInterval(updateCurrentTime, 1000);
@@ -419,11 +415,29 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-            // 更改按钮状态
-            button.textContent = '保存';
-            button.dataset.action = 'save';
-        } else if (action === 'save') {
-            handleSave(button);
+            // 检查是否有正在进行的工作
+    checkOngoingWork();
+
+    // 为输入框添加回车键监听
+    document.getElementById('project_name').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const button = document.getElementById('timerButton');
+            if (button.dataset.action === 'start') {
+                startWork();
+            }
+        }
+    });
+
+    // 为按钮添加点击事件监听
+    document.getElementById('timerButton').addEventListener('click', function() {
+        const action = this.dataset.action;
+        if (action === 'start') {
+            startWork();
+        } else if (action === 'stop') {
+            if (confirm('确定要结束当前工作吗？')) {
+                endWork();
+            }
         }
     });
 });
