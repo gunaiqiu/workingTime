@@ -1,5 +1,5 @@
 edition: 1.0.0
-name: my-framework-app
+name: working-time-app
 access: default
 services:
   framework:
@@ -7,30 +7,27 @@ services:
     props:
       region: cn-hangzhou
       service:
-        name: small-web-dev-workingtime
+        name: working-time-service
+        description: 'Working Time Management System'
+        internetAccess: true
       function:
-        name: workingTime-82pz
-        description: Initialize
-        runtime: custom.debian10
+        name: working-time-app
+        description: 'Flask application for working time management'
+        runtime: python3.9
+        handler: app.app
         environmentVariables:
-          PATH: >-
-            /var/fc/lang/python3.10/bin:/usr/local/bin/apache-maven/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/ruby/bin:/opt/bin:/code:/code/bin
-          PYTHONPATH: /opt/python:/code
-          LD_LIBRARY_PATH: >-
-            /code:/code/lib:/usr/local/lib:/opt/lib:/opt/php8.1/lib:/opt/php8.0/lib:/opt/php7.2/lib
+          FLASK_APP: app.py
+          FLASK_ENV: production
+          PYTHONPATH: /code
         layers:
           - acs:fc:cn-hangzhou:official:layers/Python3-Flask2x/versions/2
-        memorySize: 128
-        cpu: 0.05
-        timeout: 60
+          - acs:fc:cn-hangzhou:official:layers/Python39/versions/2
+        memorySize: 512
+        timeout: 300
         codeUri: ./
         diskSize: 512
-        caPort: 9000
-        customRuntimeConfig:
-          command:
-            - python3
-          args:
-            - app.py
+        instanceConcurrency: 5
+        instanceType: e1
       triggers:
         - name: httpTrigger
           type: http
@@ -41,5 +38,5 @@ services:
               - POST
               - PUT
               - DELETE
-              - HEAD
-              - PATCH
+            qualifier: LATEST
+            enableCORS: true
