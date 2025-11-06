@@ -584,9 +584,20 @@ def delete_user(user_id):
     if current_user.id == user_id:
         return jsonify({'status': 'error', 'message': '不能删除自己'})
     
-    user = User.query.get_or_404(user_id)
-    db.session.delete(user)
-    db.session.commit()
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # 首先删除用户的所有工时记录
+        TimeRecord.query.filter_by(user_id=user_id).delete()
+        
+        # 然后删除用户
+        db.session.delete(user)
+        db.session.commit()
+        
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
     
 @app.route('/admin/weekly')
 @login_required

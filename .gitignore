@@ -1,4 +1,4 @@
-instance/workingtime.db
+instance/
 
 # Python
 __pycache__/
