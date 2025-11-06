@@ -1,2 +1,21 @@
 instance/workingtime.db
+
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# VS Code
+.vscode/
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
