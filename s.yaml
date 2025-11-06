@@ -13,15 +13,16 @@ services:
       function:
         name: working-time-app
         description: 'Flask application for working time management'
-        runtime: python3.9
+        runtime: python3.10
         handler: app.app
         environmentVariables:
           FLASK_APP: app.py
           FLASK_ENV: production
-          PYTHONPATH: /code
+          PATH: /var/fc/lang/python3.10/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/code:/code/bin
+          PYTHONPATH: /opt/python:/code
+          LD_LIBRARY_PATH: /code:/code/lib:/usr/local/lib:/opt/lib
         layers:
           - acs:fc:cn-hangzhou:official:layers/Python3-Flask2x/versions/2
-          - acs:fc:cn-hangzhou:official:layers/Python39/versions/2
         memorySize: 1024
         cpu: 0.35
         timeout: 60
