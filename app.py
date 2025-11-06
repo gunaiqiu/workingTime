@@ -66,7 +66,7 @@ class User(UserMixin, db.Model):
 # 工时记录模型
 class TimeRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
     date = db.Column(db.Date, nullable=False)
     time_period = db.Column(db.String(20), nullable=False)  # 'morning' or 'afternoon'
     hours = db.Column(db.Float, nullable=False)
@@ -74,6 +74,39 @@ class TimeRecord(db.Model):
     description = db.Column(db.Text)
     is_manual = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    start_time = db.Column(db.DateTime)  # 任务开始时间
+    end_time = db.Column(db.DateTime)    # 任务结束时间
+    status = db.Column(db.String(20), default='completed')  # 'ongoing' 或 'completed'
+
+# 工作中的任务模型
+class OngoingWork(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    project_name = db.Column(db.String(100))
+    description = db.Column(db.Text)
+    start_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    
+    def to_time_record(self):
+        """将进行中的工作转换为工时记录"""
+        now = datetime.utcnow()
+        local_now = datetime.now()  # 使用本地时间判断上午/下午
+        time_period = 'morning' if local_now.hour < 12 else 'afternoon'
+        
+        # 计算工作时长（小时）
+        duration = now - self.start_time
+        hours = duration.total_seconds() / 3600
+        
+        return TimeRecord(
+            user_id=self.user_id,
+            date=now.date(),
+            time_period=time_period,
+            hours=round(hours, 2),  # 保留两位小数
+            project_name=self.project_name,
+            description=self.description,
+            start_time=self.start_time,
+            end_time=now,
+            is_manual=False
+        )
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -124,6 +157,85 @@ def login():
         flash('用户名或密码错误', 'error')
     
     return render_template('login.html')
+
+@app.route('/start_work', methods=['POST'])
+@login_required
+def start_work():
+    """开始一个新的工作任务"""
+    project_name = request.form.get('project_name')
+    description = request.form.get('description')
+    
+    # 检查是否已有进行中的工作
+    ongoing_work = OngoingWork.query.filter_by(user_id=current_user.id).first()
+    if ongoing_work:
+        return jsonify({
+            'status': 'error',
+            'message': '您已经有一个正在进行的工作任务'
+        }), 400
+    
+    # 创建新的工作记录
+    work = OngoingWork(
+        user_id=current_user.id,
+        project_name=project_name,
+        description=description
+    )
+    
+    db.session.add(work)
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'message': '工作任务已开始',
+        'start_time': work.start_time.isoformat()
+    })
+
+@app.route('/end_work', methods=['POST'])
+@login_required
+def end_work():
+    """结束当前工作任务"""
+    ongoing_work = OngoingWork.query.filter_by(user_id=current_user.id).first()
+    
+    if not ongoing_work:
+        return jsonify({
+            'status': 'error',
+            'message': '没有找到正在进行的工作任务'
+        }), 404
+    
+    # 创建工时记录
+    time_record = ongoing_work.to_time_record()
+    db.session.add(time_record)
+    
+    # 删除进行中的工作记录
+    db.session.delete(ongoing_work)
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'message': '工作任务已结束',
+        'hours': time_record.hours
+    })
+
+@app.route('/get_ongoing_work')
+@login_required
+def get_ongoing_work():
+    """获取当前用户正在进行的工作任务"""
+    ongoing_work = OngoingWork.query.filter_by(user_id=current_user.id).first()
+    
+    if not ongoing_work:
+        return jsonify({
+            'status': 'success',
+            'has_ongoing_work': False
+        })
+    
+    return jsonify({
+        'status': 'success',
+        'has_ongoing_work': True,
+        'work': {
+            'project_name': ongoing_work.project_name,
+            'description': ongoing_work.description,
+            'start_time': ongoing_work.start_time.isoformat()
+        }
+    })
 
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required

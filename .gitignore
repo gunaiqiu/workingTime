@@ -22,3 +22,4 @@ dist/
 build/
 *.egg-info/
 
+migrate_db.py
