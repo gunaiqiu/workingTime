@@ -46,7 +46,7 @@
             <div class="d-flex justify-content-between align-items-center" id="statsContainer">
                 <span>当前查看：<strong>{{ selected_user.display_name or selected_user.username }}</strong></span>
                 <span>本周总工时：<strong>{{ week_total }}h</strong></span>
-                <span>日均工时：<strong>{{ "%.1f"|format(week_total / 5) }}h</strong></span>
+                <span>日均工时(5天)：<strong>{{ "%.1f"|format(week_total / 5) }}h</strong></span>
             </div>
             <div class="d-none text-center" id="loadingIndicator">
                 <div class="spinner-border spinner-border-sm text-primary" role="status">
@@ -114,12 +114,16 @@ $(document).ready(function() {
                     console.error('收到了HTML而不是JSON:', data);
                     $('#adminTableContainer').html(data);
                 } else {
+                    // 计算日均工时（按5天计算）
+                    var weekTotal = parseFloat(data.week_total) || 0;
+                    var avgHours = (weekTotal / 5).toFixed(1);
+                    
                     // 更新统计信息
                     $('#statsContainer').html(`
                         <div class="d-flex justify-content-between align-items-center">
                             <span>当前查看：<strong>${data.selected_user}</strong></span>
                             <span>本周总工时：<strong>${data.week_total}h</strong></span>
-                            <span>日均工时：<strong>${data.avg_hours}h</strong></span>
+                            <span>日均工时(5天)：<strong>${avgHours}h</strong></span>
                         </div>
                     `);
                     
