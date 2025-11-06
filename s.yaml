@@ -48,6 +48,14 @@ services:
         runtime: python3.10
         handler: app.app
         timeout: 60
+        environmentVariables:
+          FLASK_SECRET_KEY: ${env.FLASK_SECRET_KEY}
+          MYSQL_HOST: ${env.MYSQL_HOST}
+          MYSQL_PORT: ${env.MYSQL_PORT}
+          MYSQL_USER: ${env.MYSQL_USER}
+          MYSQL_PASSWORD: ${env.MYSQL_PASSWORD}
+          MYSQL_DB: ${env.MYSQL_DB}
+          MYSQL_DATABASE_URL: mysql://${env.MYSQL_USER}:${env.MYSQL_PASSWORD}@${env.MYSQL_HOST}:${env.MYSQL_PORT}/${env.MYSQL_DB}
       triggers:
         - name: httpTrigger
           type: http

@@ -10,15 +10,11 @@ from openpyxl.utils import get_column_letter
 import io
 
 app = Flask(__name__, instance_relative_config=True)
-app.config['SECRET_KEY'] = os.urandom(24)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////' + os.path.join(app.instance_path, 'workingtime.db')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.environ['FLASK_SECRET_KEY']
 
-# 确保实例文件夹存在
-try:
-    os.makedirs(app.instance_path)
-except OSError:
-    pass
+# 数据库配置
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['MYSQL_DATABASE_URL']
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 login_manager = LoginManager()
@@ -76,55 +72,32 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 def initialize_database():
+    """初始化数据库：创建所有表并添加管理员用户（如果不存在）"""
     with app.app_context():
+        # 创建所有表
         db.create_all()
-        # 检查是否需要添加 timezone 列
-        from sqlalchemy import inspect
-        inspector = inspect(db.engine)
-        columns = [c['name'] for c in inspector.get_columns('user')]
-        if 'timezone' not in columns:
-            db.engine.execute('ALTER TABLE user ADD COLUMN timezone VARCHAR(50) DEFAULT "Asia/Shanghai"')
         
-        user_count = User.query.count()
+        # 检查是否已存在管理员用户
+        user_count = User.query.filter_by(username='admin').count()
         if user_count == 0:
-            admin_user = User(username='admin', display_name='管理员', timezone='Asia/Shanghai')
+            admin_user = User(
+                username='admin',
+                display_name='管理员',
+                timezone='Asia/Shanghai'
+            )
             admin_user.set_password('admin')
             db.session.add(admin_user)
             db.session.commit()
 
-def needs_installation():
-    with app.app_context():
-        try:
-            return User.query.count() == 0
-        except:
-            return True
+# 在应用启动时初始化数据库
+initialize_database()
 
 # 路由定义
 @app.route('/')
 def index():
-    if needs_installation():
-        return redirect(url_for('install'))
     if not current_user.is_authenticated:
         return redirect(url_for('login'))
     return redirect(url_for('dashboard'))
-
-@app.route('/install')
-def install():
-    if not needs_installation():
-        return redirect(url_for('index'))
-    return render_template('install.html')
-
-@app.route('/install', methods=['POST'])
-def do_install():
-    if not needs_installation():
-        return redirect(url_for('index'))
-    initialize_database()
-    flash('系统初始化成功！默认管理员账户: admin/admin', 'success')
-    return redirect(url_for('install_success'))
-
-@app.route('/install/success')
-def install_success():
-    return render_template('install_success.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
