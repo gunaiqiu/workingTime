@@ -65,7 +65,11 @@ services:
               - GET
               - POST
       customDomains:
-        - domainName: auto
+        - domainName: auto  # 自动生成的临时域名
+          protocol: HTTP
+          routeConfigs:
+            - path: '/*'
+        - domainName: gongshi.ywboy.top  # 替换为你自己的域名
           protocol: HTTP
           routeConfigs:
             - path: '/*'
