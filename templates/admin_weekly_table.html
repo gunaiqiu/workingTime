@@ -51,6 +51,22 @@
                             <td class="align-middle">{{ record.description or '' }}</td>
                         </tr>
                     {% endfor %}
+                    
+                    <!-- 当日统计 -->
+                    <tr class="{{ 'table-active' if date == today }}">
+                        <td colspan="2" class="text-end"><strong>当日统计</strong></td>
+                        <td colspan="3">
+                            <span class="text-primary">上午：<strong>{{ daily_stats[date]['morning_hours'] }}h</strong></span>
+                            <span class="mx-3">|</span>
+                            <span class="text-success">下午：<strong>{{ daily_stats[date]['afternoon_hours'] }}h</strong></span>
+                            <span class="mx-3">|</span>
+                            <span>总计：<strong>{{ daily_stats[date]['total_hours'] }}h</strong></span>
+                        </td>
+                    </tr>
+                {% endif %}
+                
+                {% if loop.index < week_dates|length %}
+                    <tr><td colspan="5" class="p-0"><hr class="m-0"></td></tr>
                 {% endif %}
             {% endfor %}
         </tbody>

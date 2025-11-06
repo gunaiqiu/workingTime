@@ -134,9 +134,11 @@
                         <tr class="{{ 'table-active' if date == today }}">
                             <td colspan="2" class="text-end"><strong>当日统计</strong></td>
                             <td colspan="3">
-                                上午：{{ daily_stats[date]['morning_hours'] }}h | 
-                                下午：{{ daily_stats[date]['afternoon_hours'] }}h | 
-                                总计：<strong>{{ daily_stats[date]['total_hours'] }}h</strong>
+                                <span class="text-primary">上午：<strong>{{ daily_stats[date]['morning_hours'] }}h</strong></span>
+                                <span class="mx-3">|</span>
+                                <span class="text-success">下午：<strong>{{ daily_stats[date]['afternoon_hours'] }}h</strong></span>
+                                <span class="mx-3">|</span>
+                                <span>总计：<strong>{{ daily_stats[date]['total_hours'] }}h</strong></span>
                             </td>
                         </tr>
                         
