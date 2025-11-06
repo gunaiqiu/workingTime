@@ -9,12 +9,20 @@ from openpyxl.styles import Alignment, Border, Side, Font, PatternFill
 from openpyxl.utils import get_column_letter
 import io
 
+import pymysql
+pymysql.install_as_MySQLdb()
+
 app = Flask(__name__, instance_relative_config=True)
 app.config['SECRET_KEY'] = os.environ['FLASK_SECRET_KEY']
 
 # 数据库配置
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['MYSQL_DATABASE_URL']
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['MYSQL_DATABASE_URL'].replace('mysql://', 'mysql+pymysql://')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 10,
+    'pool_recycle': 3600,
+    'pool_pre_ping': True
+}
 
 db = SQLAlchemy(app)
 login_manager = LoginManager()

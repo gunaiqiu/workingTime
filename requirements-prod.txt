@@ -1,0 +1,10 @@
+Flask==3.1.2
+Flask-Login==0.6.3
+Flask-SQLAlchemy==3.1.1
+Werkzeug>=3.1.0
+pandas==2.3.1
+openpyxl==3.1.5
+python-dateutil==2.9.0.post0
+pytz==2025.2
+PyMySQL==1.1.0
+cryptography==41.0.5
