@@ -42,3 +42,13 @@ services:
               - DELETE
             qualifier: LATEST
             enableCORS: true
+      customDomains:
+        - domainName: auto
+          protocol: HTTP
+          routeConfigs:
+            - path: /*
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
