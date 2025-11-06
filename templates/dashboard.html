@@ -11,6 +11,25 @@
         50% { opacity: 0.5; }
         100% { opacity: 1; }
     }
+    /* 添加过渡动画 */
+    .fade-enter {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    .fade-enter-active {
+        opacity: 1;
+        transform: translateY(0);
+        transition: opacity 300ms, transform 300ms;
+    }
+    .fade-exit {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    .fade-exit-active {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 300ms, transform 300ms;
+    }
 </style>
 {% endblock %}
 
@@ -136,6 +155,18 @@
 const userTimezone = "{{ current_user.timezone }}";
 let timerInterval;
 let startTime;
+let isProcessing = false;
+
+// 用于发送表单数据
+function createFormData(data) {
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+        if (data[key] !== undefined && data[key] !== null) {
+            formData.append(key, data[key]);
+        }
+    });
+    return formData;
+}
 
 // 格式化时间函数 
 function formatDateTime(date) {
@@ -161,8 +192,12 @@ function updateCurrentTime() {
 
 // 更新计时器显示
 function updateTimer() {
+    if (!startTime) {
+        document.getElementById('timeElapsed').textContent = '00:00:00';
+        return;
+    }
     const now = new Date();
-    const diff = now - startTime;
+    const diff = Math.max(0, now - new Date(startTime));
     const hours = Math.floor(diff / 3600000);
     const minutes = Math.floor((diff % 3600000) / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
@@ -209,6 +244,10 @@ function startWork() {
         } else {
             alert(data.message || '开始工作失败');
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('开始工作失败，请重试');
     });
 }
 
@@ -247,7 +286,7 @@ function endWork() {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('保存失败，请重试');
+        alert('结束工作失败，请重试');
     });
 }
 
@@ -277,146 +316,51 @@ function deleteRecord(id) {
 
 // 删除按钮事件监听
 document.addEventListener('DOMContentLoaded', function() {
+    // 防止多次初始化
+    if (window.isInitialized) return;
+    window.isInitialized = true;
+
     // 删除按钮事件监听
-    document.querySelectorAll('.delete-record').forEach(button => {
-        button.addEventListener('click', function() {
-            const id = this.dataset.id;
-            deleteRecord(id);
+    function setupDeleteButtons() {
+        document.querySelectorAll('.delete-record').forEach(button => {
+            button.addEventListener('click', function() {
+                const id = this.dataset.id;
+                deleteRecord(id);
+            });
         });
-    });
+    }
+    setupDeleteButtons();
 
     // 每秒更新时间
     setInterval(updateCurrentTime, 1000);
     updateCurrentTime();
 
+    // 初始化计时器显示为 00:00:00
+    updateTimer();
+
     // 检查是否有正在进行的工作
-    function checkOngoingWork() {
-        fetch('/get_ongoing_work')
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success' && data.has_ongoing_work) {
-                    const work = data.work;
-                    document.getElementById('project_name').value = work.project_name;
-                    document.getElementById('description').value = work.description || '';
-                    document.getElementById('project_name').disabled = true;
-                    document.getElementById('timerDisplay').style.display = 'block';
-                    document.getElementById('descriptionContainer').style.display = 'block';
-                    
-                    const button = document.getElementById('timerButton');
-                    button.textContent = '结束工作';
-                    button.dataset.action = 'stop';
-                    button.classList.replace('btn-primary', 'btn-danger');
-                    
-                    // 设置开始时间并启动计时器
-                    startTime = new Date(work.start_time);
-                    updateTimer();
-                    timerInterval = setInterval(updateTimer, 1000);
-                }
-            });
-    }
-
-    // 更新计时器显示
-    function updateTimer() {
-        const now = new Date();
-        const diff = now - startTime;
-        const hours = Math.floor(diff / 3600000);
-        const minutes = Math.floor((diff % 3600000) / 60000);
-        const seconds = Math.floor((diff % 60000) / 1000);
-        
-        document.getElementById('timeElapsed').textContent = 
-            `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        document.getElementById('timeElapsed').classList.add('timer-ongoing');
-    }
-
-    // 开始工作
-    function startWork() {
-        const projectName = document.getElementById('project_name').value;
-        const description = document.getElementById('description').value;
-
-        fetch('/start_work', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                project_name: projectName,
-                description: description
-            })
-        })
+    fetch('/get_ongoing_work')
         .then(response => response.json())
         .then(data => {
-            if (data.status === 'success') {
-                startTime = new Date(data.start_time);
+            if (data.status === 'success' && data.has_ongoing_work) {
+                const work = data.work;
+                document.getElementById('project_name').value = work.project_name;
+                document.getElementById('description').value = work.description || '';
                 document.getElementById('project_name').disabled = true;
                 document.getElementById('timerDisplay').style.display = 'block';
                 document.getElementById('descriptionContainer').style.display = 'block';
-                updateTimer();
-                timerInterval = setInterval(updateTimer, 1000);
                 
                 const button = document.getElementById('timerButton');
                 button.textContent = '结束工作';
                 button.dataset.action = 'stop';
                 button.classList.replace('btn-primary', 'btn-danger');
-            } else {
-                alert(data.message || '开始工作失败');
+                
+                // 设置开始时间并启动计时器
+                startTime = new Date(work.start_time);
+                updateTimer();
+                timerInterval = setInterval(updateTimer, 1000);
             }
         });
-    }
-
-    // 结束工作
-    function endWork() {
-        fetch('/end_work', {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                clearInterval(timerInterval);
-                document.getElementById('project_name').disabled = false;
-                document.getElementById('project_name').value = '';
-                document.getElementById('description').value = '';
-                document.getElementById('timerDisplay').style.display = 'none';
-                document.getElementById('descriptionContainer').style.display = 'none';
-                
-                const button = document.getElementById('timerButton');
-                button.textContent = '开始工作';
-                button.dataset.action = 'start';
-                button.classList.replace('btn-danger', 'btn-primary');
-                
-                window.location.reload();  // 刷新页面以显示新记录
-            } else {
-                alert(data.message || '结束工作失败');
-            }
-        });
-    }
-
-    // 初始检查是否有进行中的工作
-    checkOngoingWork();
-
-    // 为输入框添加回车键监听
-    document.getElementById('project_name').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const button = document.getElementById('timerButton');
-            if (button.dataset.action === 'start') {
-                startWork();
-            }
-        }
-    });
-
-    // 为按钮添加点击事件监听
-    document.getElementById('timerButton').addEventListener('click', function() {
-        const action = this.dataset.action;
-        if (action === 'start') {
-            startWork();
-        } else if (action === 'stop') {
-            if (confirm('确定要结束当前工作吗？')) {
-                endWork();
-            }
-        }
-    });
-            // 检查是否有正在进行的工作
-    checkOngoingWork();
 
     // 为输入框添加回车键监听
     document.getElementById('project_name').addEventListener('keypress', function(e) {

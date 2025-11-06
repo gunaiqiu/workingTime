@@ -22,4 +22,7 @@ dist/
 build/
 *.egg-info/
 
+test_db.py
+start.sh
 migrate_db.py
+

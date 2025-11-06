@@ -8,20 +8,37 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Side, Font, PatternFill
 from openpyxl.utils import get_column_letter
 import io
-
+import pytz
 import pymysql
+
 pymysql.install_as_MySQLdb()
 
 app = Flask(__name__, instance_relative_config=True)
 app.config['SECRET_KEY'] = os.environ['FLASK_SECRET_KEY']
 
 # 数据库配置
-# 从环境变量获取数据库连接信息
-DB_USER = os.environ['MYSQL_USER']
-DB_PASS = os.environ['MYSQL_PASSWORD']
-DB_HOST = os.environ['MYSQL_HOST']
-DB_PORT = os.environ['MYSQL_PORT']
-DB_NAME = os.environ['MYSQL_DATABASE']
+# 从环境变量获取数据库连接信息并进行验证
+def get_env_or_default(key, default=None, required=True):
+    value = os.environ.get(key, default)
+    if required and not value:
+        raise ValueError(f'环境变量 {key} 未设置')
+    return value
+
+def validate_port(port_str):
+    try:
+        port = int(port_str)
+        if 1 <= port <= 65535:
+            return port
+        raise ValueError()
+    except ValueError:
+        raise ValueError(f'无效的端口号: {port_str}. 端口号必须是1-65535之间的整数')
+
+# 获取数据库配置
+DB_USER = get_env_or_default('MYSQL_USER', 'root')
+DB_PASS = get_env_or_default('MYSQL_PASSWORD', '')
+DB_HOST = get_env_or_default('MYSQL_HOST', 'localhost')
+DB_PORT = validate_port(get_env_or_default('MYSQL_PORT', '3306'))
+DB_NAME = get_env_or_default('MYSQL_DATABASE', 'workingtime')
 
 # 构建数据库 URI
 app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
@@ -97,8 +114,13 @@ class OngoingWork(db.Model):
     def to_time_record(self):
         """将进行中的工作转换为工时记录"""
         now = datetime.utcnow()
-        local_now = datetime.now()  # 使用本地时间判断上午/下午
-        time_period = 'morning' if local_now.hour < 12 else 'afternoon'
+        
+        # 使用开始时间判断上午/下午
+        # 将 UTC 开始时间转换为本地时间
+        user = User.query.get(self.user_id)
+        user_tz = pytz.timezone(user.timezone)
+        local_start_time = self.start_time.replace(tzinfo=pytz.UTC).astimezone(user_tz)
+        time_period = 'morning' if local_start_time.hour < 12 else 'afternoon'
         
         # 计算工作时长（小时）
         duration = now - self.start_time
@@ -106,7 +128,7 @@ class OngoingWork(db.Model):
         
         return TimeRecord(
             user_id=self.user_id,
-            date=now.date(),
+            date=local_start_time.date(),  # 使用开始时间的日期
             time_period=time_period,
             hours=round(hours, 2),  # 保留两位小数
             project_name=self.project_name,
@@ -170,8 +192,20 @@ def login():
 @login_required
 def start_work():
     """开始一个新的工作任务"""
-    project_name = request.form.get('project_name')
-    description = request.form.get('description')
+    # 处理不同的内容类型
+    if request.is_json:
+        data = request.get_json()
+        project_name = data.get('project_name')
+        description = data.get('description')
+    else:
+        project_name = request.form.get('project_name')
+        description = request.form.get('description')
+    
+    if not project_name:
+        return jsonify({
+            'status': 'error',
+            'message': '请输入工作内容'
+        }), 400
     
     # 检查是否已有进行中的工作
     ongoing_work = OngoingWork.query.filter_by(user_id=current_user.id).first()
@@ -194,13 +228,20 @@ def start_work():
     return jsonify({
         'status': 'success',
         'message': '工作任务已开始',
-        'start_time': work.start_time.isoformat()
+        'start_time': work.start_time.isoformat() + 'Z'  # 添加 'Z' 表示 UTC 时间
     })
 
 @app.route('/end_work', methods=['POST'])
 @login_required
 def end_work():
     """结束当前工作任务"""
+    # 处理不同的内容类型
+    if request.is_json:
+        data = request.get_json()
+        description = data.get('description', '')
+    else:
+        description = request.form.get('description', '')
+
     ongoing_work = OngoingWork.query.filter_by(user_id=current_user.id).first()
     
     if not ongoing_work:
@@ -208,9 +249,26 @@ def end_work():
             'status': 'error',
             'message': '没有找到正在进行的工作任务'
         }), 404
+
+    # 更新描述
+    ongoing_work.description = description
     
     # 创建工时记录
     time_record = ongoing_work.to_time_record()
+    
+    # 计算工时时长并四舍五入到0.5
+    duration = time_record.end_time - time_record.start_time
+    hours = duration.total_seconds() / 3600
+    
+    # 如果小于0.5小时，按0.5小时计算
+    if hours < 0.5:
+        hours = 0.5
+    else:
+        # 将小时数四舍五入到最近的0.5
+        hours = round(hours * 2) / 2
+
+    time_record.hours = hours
+    
     db.session.add(time_record)
     
     # 删除进行中的工作记录
@@ -241,7 +299,7 @@ def get_ongoing_work():
         'work': {
             'project_name': ongoing_work.project_name,
             'description': ongoing_work.description,
-            'start_time': ongoing_work.start_time.isoformat()
+            'start_time': ongoing_work.start_time.isoformat() + 'Z'  # 添加 'Z' 表示 UTC 时间
         }
     })
 
@@ -1034,4 +1092,4 @@ def admin_export_weekly():
     )
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(port=9000, debug=True)
