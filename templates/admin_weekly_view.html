@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex align-items-center">
+                <h5 class="mb-0 me-3">管理员周视图</h5>
+                <div class="me-3">
+                    <select id="userSelect" class="form-select form-select-sm">
+                        {% for user in all_users %}
+                        <option value="{{ user.id }}" {{ 'selected' if user.id == selected_user.id }}>
+                            {{ user.display_name or user.username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="btn-group me-2">
+                    <!-- 导出所选用户 -->
+                    <a id="exportSelectedBtn" href="{{ url_for('admin_export_weekly') }}?week={{ current_week_offset }}&user={{ selected_user.id }}" 
+                       class="btn btn-outline-success btn-sm" target="_blank">
+                        导出所选用户
+                    </a>
+                    <!-- 导出全员工时 -->
+                    <a id="exportAllBtn" href="{{ url_for('admin_export_all_weekly', week=current_week_offset) }}" 
+                       class="btn btn-success btn-sm">
+                        导出全员工时
+                    </a>
+                </div>
+            </div>
+            <div class="btn-group">
+                <a href="{{ url_for('admin_weekly_view', week=current_week_offset-1, user=selected_user.id) }}" 
+                   class="btn btn-outline-primary">&lt; 上周</a>
+                <a href="{{ url_for('admin_weekly_view', week=0, user=selected_user.id) }}" 
+                   class="btn btn-outline-primary {{ 'active' if current_week_offset == 0 }}">本周</a>
+                <a href="{{ url_for('admin_weekly_view', week=current_week_offset+1, user=selected_user.id) }}" 
+                   class="btn btn-outline-primary">下周 &gt;</a>
+            </div>
+        </div>
+        <div class="alert alert-info mb-0">
+            <div class="d-flex justify-content-between align-items-center" id="statsContainer">
+                <span>当前查看：<strong>{{ selected_user.display_name or selected_user.username }}</strong></span>
+                <span>本周总工时：<strong>{{ week_total }}h</strong></span>
+                <span>日均工时：<strong>{{ "%.1f"|format(week_total / 5) }}h</strong></span>
+            </div>
+            <div class="d-none text-center" id="loadingIndicator">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <span class="ms-2">加载中...</span>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="adminTableContainer">
+            {% include 'admin_weekly_table.html' %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function() {
+    $('#userSelect').select2({
+        placeholder: '选择要查看的用户'
+    });
+
+    $('#userSelect').change(function() {
+        var userId = $(this).val();
+        if (!userId) return;
+
+        console.log('选择的用户ID:', userId); // 调试日志
+
+        // 显示加载指示器
+        $('#statsContainer').addClass('d-none');
+        $('#loadingIndicator').removeClass('d-none');
+        $('#adminTableContainer').addClass('opacity-50');
+
+        // 更新导出所选用户按钮的链接
+        var exportUrl = "{{ url_for('admin_export_weekly') }}" + "?week={{ current_week_offset }}&user=" + userId;
+        console.log('更新导出链接为:', exportUrl); // 调试日志
+        $('#exportSelectedBtn')
+            .attr('href', exportUrl)
+            .removeClass('disabled')
+            .attr('target', '_blank');
+
+        // 构建 AJAX URL
+        var ajaxUrl = "{{ url_for('admin_weekly_view') }}";
+        var params = new URLSearchParams({
+            user: userId,
+            week: "{{ current_week_offset }}",
+            ajax: '1'
+        });
+        ajaxUrl = ajaxUrl + '?' + params.toString();
+        
+        console.log('AJAX URL:', ajaxUrl); // 调试日志
+
+        $.ajax({
+            url: ajaxUrl,
+            method: 'GET',
+            dataType: 'json',  // 期望返回JSON格式
+            success: function(data) {
+                console.log('收到响应数据:', data); // 调试日志
+
+                if (typeof data === 'string') {
+                    console.error('收到了HTML而不是JSON:', data);
+                    $('#adminTableContainer').html(data);
+                } else {
+                    // 更新统计信息
+                    $('#statsContainer').html(`
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>当前查看：<strong>${data.selected_user}</strong></span>
+                            <span>本周总工时：<strong>${data.week_total}h</strong></span>
+                            <span>日均工时：<strong>${data.avg_hours}h</strong></span>
+                        </div>
+                    `);
+                    
+                    console.log('更新表格内容:', data.table_html?.length || 0, '字符'); // 调试日志
+                    // 更新表格内容
+                    $('#adminTableContainer').html(data.table_html || '');
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('AJAX错误:', textStatus, errorThrown); // 调试日志
+                // 失败时回退为整页跳转
+                window.location.href = "{{ url_for('admin_weekly_view', week=current_week_offset) }}?user=" + userId;
+            }
+        }).always(function() {
+            // 无论成功失败，都隐藏加载指示器
+            $('#loadingIndicator').addClass('d-none');
+            $('#statsContainer').removeClass('d-none');
+            $('#adminTableContainer').removeClass('opacity-50');
+        }).fail(function() {
+            // 失败时回退为整页跳转以保证功能可用
+            window.location.href = "{{ url_for('admin_weekly_view', week=current_week_offset) }}?user=" + userId;
+        });
+    });
+});
+</script>
+{% endblock %}

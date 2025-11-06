@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">计时器</h5>
+                    <div class="text-muted">
+                        <small class="me-2">当前时区: {{ current_user.timezone }}</small>
+                        <span id="current-time" class="badge bg-light text-dark"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <form id="timerForm" class="mb-3">
+                    <div class="mb-3">
+                        <label for="project_name" class="form-label">工作内容</label>
+                        <input type="text" class="form-control" id="project_name" name="project_name" required 
+                               placeholder="输入完成后按回车开始计时">
+                    </div>
+                    <div id="descriptionContainer" class="mb-3" style="display: none;">
+                        <label for="description" class="form-label">补充说明（选填）</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" 
+                                placeholder="请填写工作详细内容"></textarea>
+                    </div>
+                    <div class="d-grid">
+                        <button type="button" class="btn btn-primary" id="timerButton" data-action="start">
+                            开始计时
+                        </button>
+                    </div>
+                </form>
+                <div id="timerDisplay" class="text-center" style="display: none;">
+                    <h3 id="timeElapsed">00:00:00</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">今日记录</h5>
+                    <a href="{{ url_for('add_manual_record') }}" class="btn btn-primary btn-sm">补登工时</a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">今日工时统计</h6>
+                        <div class="row text-center">
+                            <div class="col">
+                                <h4 class="mb-0">{{ morning_hours }}h</h4>
+                                <small class="text-muted">上午</small>
+                            </div>
+                            <div class="col">
+                                <h4 class="mb-0">{{ afternoon_hours }}h</h4>
+                                <small class="text-muted">下午</small>
+                            </div>
+                            <div class="col">
+                                <h4 class="mb-0">{{ total_hours }}h</h4>
+                                <small class="text-muted">总计</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if today_records %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>时段</th>
+                                <th>工时</th>
+                                <th>工作内容</th>
+                                <th>补充说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in today_records %}
+                            <tr>
+                                <td class="{{ 'text-primary' if record.time_period == 'morning' else 'text-success' }}">
+                                    {{ '上午' if record.time_period == 'morning' else '下午' }}
+                                </td>
+                                <td>{{ record.hours }}</td>
+                                <td>{{ record.project_name }}</td>
+                                <td>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>{{ record.description or '' }}</span>
+                                        <div class="btn-group btn-group-sm ms-2">
+                                            <a href="{{ url_for('manage_record', record_id=record.id) }}" 
+                                               class="btn btn-outline-primary btn-sm">
+                                                ✏️
+                                            </a>
+                                            <button type="button" class="btn btn-outline-danger btn-sm delete-record"
+                                                    data-id="{{ record.id }}"
+                                                    data-project="{{ record.project_name }}">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">今日暂无记录</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="text/javascript">
+// 用户时区设置
+var userTimezone = "{{ current_user.timezone }}";
+var timerInterval;
+var startTime;
+
+// 格式化时间函数 
+function formatDateTime(date) {
+    var options = {
+        timeZone: userTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
+    return new Intl.DateTimeFormat('zh-CN', options).format(date);
+}
+
+// 更新时间显示
+function updateCurrentTime() {
+    var now = new Date();
+    var timeDisplay = document.getElementById('current-time');
+    timeDisplay.textContent = formatDateTime(now);
+}
+
+// 计时器相关函数
+function startTimer() {
+    startTime = new Date();
+    timerInterval = setInterval(updateTimer, 1000);
+}
+
+function stopTimer() {
+    clearInterval(timerInterval);
+}
+
+function updateTimer() {
+    var now = new Date();
+    var diff = now - startTime;
+    var hours = Math.floor(diff / 3600000);
+    var minutes = Math.floor((diff % 3600000) / 60000);
+    var seconds = Math.floor((diff % 60000) / 1000);
+    
+    document.getElementById('timeElapsed').textContent = 
+        hours.toString().padStart(2, '0') + ':' + 
+        minutes.toString().padStart(2, '0') + ':' + 
+        seconds.toString().padStart(2, '0');
+}
+
+// 处理开始计时的函数
+function startTimerAction(button) {
+    var projectName = document.getElementById('project_name').value;
+    
+    if (!projectName) {
+        alert('请输入工作内容');
+        return;
+    }
+    
+    fetch('/start_timer', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'project_name=' + encodeURIComponent(projectName)
+    })
+    .then(function(response) {
+        return response.json();
+    })
+    .then(function(data) {
+        if (data.status === 'success') {
+            startTimer();
+            button.textContent = '停止计时';
+            button.dataset.action = 'stop';
+            button.classList.replace('btn-primary', 'btn-danger');
+            document.getElementById('project_name').disabled = true;
+            document.getElementById('timerDisplay').style.display = 'block';
+        }
+    });
+}
+
+// 处理保存的函数
+function handleSave(button) {
+    var description = document.getElementById('description').value;
+    
+    fetch('/stop_timer', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            description: description
+        })
+    })
+    .then(function(response) {
+        return response.json();
+    })
+    .then(function(data) {
+        if (data.status === 'success') {
+            stopTimer();
+            button.textContent = '开始计时';
+            button.dataset.action = 'start';
+            button.classList.replace('btn-danger', 'btn-primary');
+            document.getElementById('project_name').disabled = false;
+            document.getElementById('project_name').value = '';
+            document.getElementById('timerDisplay').style.display = 'none';
+            document.getElementById('descriptionContainer').style.display = 'none';
+            document.getElementById('description').value = '';
+            window.location.reload();
+        } else {
+            alert('保存失败：' + (data.message || '未知错误'));
+        }
+    })
+    .catch(function(error) {
+        console.error('Error:', error);
+        alert('保存失败，请重试');
+    });
+}
+
+// 删除工时记录
+function deleteRecord(id) {
+    const button = event.target.closest('button');
+    const projectName = button.dataset.project;
+    
+    if (confirm('确定要删除"' + projectName + '"的工时记录吗？')) {
+        fetch('/record/' + id, {
+            method: 'DELETE',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                window.location.reload();
+            } else {
+                alert('删除失败：' + (data.message || '未知错误'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除失败，请重试');
+        });
+    }
+}
+
+// 删除按钮事件监听
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.delete-record').forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.dataset.id;
+            deleteRecord(id);
+        });
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 每秒更新时间
+    setInterval(updateCurrentTime, 1000);
+    updateCurrentTime();  // 立即显示时间
+
+    // 为输入框添加回车键监听
+    document.getElementById('project_name').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // 阻止表单默认提交
+            var button = document.getElementById('timerButton');
+            if (button.dataset.action === 'start') {
+                startTimerAction(button);
+            }
+        }
+    });
+
+    // 为按钮添加点击事件监听
+    document.getElementById('timerButton').addEventListener('click', function() {
+        var button = this;
+        var action = button.dataset.action;
+        
+        if (action === 'start') {
+            startTimerAction(button);
+        } else if (action === 'stop') {
+            // 显示补充说明框
+            document.getElementById('descriptionContainer').style.display = 'block';
+            // 更改按钮状态
+            button.textContent = '保存';
+            button.dataset.action = 'save';
+        } else if (action === 'save') {
+            handleSave(button);
+        }
+    });
+});
+</script>
+{% endblock %}

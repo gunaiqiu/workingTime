@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex align-items-center">
+                <h5 class="mb-0 me-3">周视图</h5>
+                <div>
+                    <a href="{{ url_for('add_manual_record') }}" class="btn btn-primary btn-sm me-2">
+                        补登工时
+                    </a>
+                    <a href="{{ url_for('export_weekly', week=current_week_offset) }}" class="btn btn-success btn-sm">
+                        导出Excel
+                    </a>
+                </div>
+            </div>
+            <div class="btn-group">
+                <a href="{{ url_for('weekly_view', week=current_week_offset-1) }}" class="btn btn-outline-primary">&lt; 上周</a>
+                <a href="{{ url_for('weekly_view', week=0) }}" class="btn btn-outline-primary {{ 'active' if current_week_offset == 0 }}">本周</a>
+                <a href="{{ url_for('weekly_view', week=current_week_offset+1) }}" class="btn btn-outline-primary">下周 &gt;</a>
+            </div>
+        </div>
+        <div class="alert alert-info mb-0">
+            <div class="d-flex justify-content-between align-items-center">
+                <span>本周总工时：<strong>{{ week_total }}h</strong></span>
+                <span>日均工时：<strong>{{ "%.1f"|format(week_total / 5) }}h</strong></span>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead>
+                    <tr class="table-light">
+                        <th class="text-center bg-light">日期</th>
+                        <th class="text-center bg-light">时段</th>
+                        <th class="text-center bg-light">工时</th>
+                        <th class="text-center bg-light">工作内容</th>
+                        <th class="text-center bg-light">补充说明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for date in week_dates %}
+                        {% set morning_records = records|selectattr('date', 'eq', date)|selectattr('time_period', 'eq', 'morning')|list %}
+                        {% set afternoon_records = records|selectattr('date', 'eq', date)|selectattr('time_period', 'eq', 'afternoon')|list %}
+                        {% set morning_rows = morning_records|length or 1 %}
+                        {% set afternoon_rows = afternoon_records|length or 1 %}
+                        {% set total_rows = morning_rows + afternoon_rows %}
+                        
+                        <!-- 上午记录行 -->
+                        {% for record in morning_records %}
+                            <tr class="{{ 'table-active' if date == today }}">
+                                {% if loop.first %}
+                                    <td class="align-middle text-center" rowspan="{{ total_rows }}">
+                                        {{ date.strftime('%m/%d') }}
+                                        <br>
+                                        <small>{{ ['一','二','三','四','五','六','日'][date.weekday()] }}</small>
+                                    </td>
+                                    <td class="align-middle text-center" rowspan="{{ morning_rows }}">上午</td>
+                                {% endif %}
+                                <td>{{ record.hours }}h</td>
+                                <td>{{ record.project_name }}</td>
+                                <td>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>{{ record.description or '' }}</span>
+                                        <div class="btn-group btn-group-sm ms-2">
+                                            <a href="{{ url_for('manage_record', record_id=record.id) }}" 
+                                               class="btn btn-outline-primary btn-sm">
+                                                ✏️
+                                            </a>
+                                            <button type="button" class="btn btn-outline-danger btn-sm delete-record"
+                                                    data-id="{{ record.id }}"
+                                                    data-project="{{ record.project_name }}">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr class="{{ 'table-active' if date == today }}">
+                                <td class="align-middle text-center" rowspan="{{ total_rows }}">
+                                    {{ date.strftime('%m/%d') }}
+                                    <br>
+                                    <small>{{ ['一','二','三','四','五','六','日'][date.weekday()] }}</small>
+                                </td>
+                                <td class="align-middle text-center">上午</td>
+                                <td colspan="3" class="text-center">
+                                    <span class="text-muted">无记录</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        
+                        <!-- 下午记录行 -->
+                        {% for record in afternoon_records %}
+                            <tr class="{{ 'table-active' if date == today }}">
+                                {% if loop.first %}
+                                    <td class="align-middle text-center" rowspan="{{ afternoon_rows }}">下午</td>
+                                {% endif %}
+                                <td>{{ record.hours }}h</td>
+                                <td>{{ record.project_name }}</td>
+                                <td>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>{{ record.description or '' }}</span>
+                                        <div class="btn-group btn-group-sm ms-2">
+                                            <a href="{{ url_for('manage_record', record_id=record.id) }}" 
+                                               class="btn btn-outline-primary btn-sm">
+                                                ✏️
+                                            </a>
+                                            <button type="button" class="btn btn-outline-danger btn-sm delete-record"
+                                                    data-id="{{ record.id }}"
+                                                    data-project="{{ record.project_name }}">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr class="{{ 'table-active' if date == today }}">
+                                <td class="align-middle text-center">下午</td>
+                                <td colspan="3" class="text-center">
+                                    <span class="text-muted">无记录</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        
+                        <!-- 当日统计 -->
+                        <tr class="{{ 'table-active' if date == today }}">
+                            <td colspan="2" class="text-end"><strong>当日统计</strong></td>
+                            <td colspan="3">
+                                上午：{{ daily_stats[date]['morning_hours'] }}h | 
+                                下午：{{ daily_stats[date]['afternoon_hours'] }}h | 
+                                总计：<strong>{{ daily_stats[date]['total_hours'] }}h</strong>
+                            </td>
+                        </tr>
+                        
+                        {% if loop.index < week_dates|length %}
+                            <tr><td colspan="5" class="p-0"><hr class="m-0"></td></tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.table > :not(caption) > * > * {
+    padding: 0.5rem;
+}
+hr {
+    border-top: 1px solid rgba(0,0,0,.1);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+function deleteRecord(id) {
+    const button = event.target.closest('button');
+    const projectName = button.dataset.project;
+    
+    if (confirm('确定要删除"' + projectName + '"的工时记录吗？')) {
+        fetch('/record/' + id, {
+            method: 'DELETE',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                window.location.reload();
+            } else {
+                alert('删除失败：' + (data.message || '未知错误'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除失败，请重试');
+        });
+    }
+}
+
+// 删除按钮事件监听
+document.querySelectorAll('.delete-record').forEach(button => {
+    button.addEventListener('click', function() {
+        const id = this.dataset.id;
+        deleteRecord(id);
+    });
+});
+</script>
+{% endblock %}

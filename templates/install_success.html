@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">安装成功</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-success">
+                    <h4 class="alert-heading">🎉 恭喜！</h4>
+                    <p>系统已成功安装完成。</p>
+                </div>
+                
+                <h5>默认管理员账户信息：</h5>
+                <ul>
+                    <li>用户名：admin</li>
+                    <li>密码：admin</li>
+                </ul>
+                
+                <div class="alert alert-warning">
+                    <p class="mb-0">请尽快登录并修改默认密码！</p>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary">前往登录</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+<div class="table-responsive">
+    <table class="table table-bordered">
+        <thead>
+            <tr class="table-light">
+                <th class="text-center bg-light">日期</th>
+                <th class="text-center bg-light">时段</th>
+                <th class="text-center bg-light">工时</th>
+                <th class="text-center bg-light">工作内容</th>
+                <th class="text-center bg-light">补充说明</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for date in week_dates %}
+                {% set day_records = records|selectattr('date', 'eq', date)|list %}
+                {% set morning_records = day_records|selectattr('time_period', 'eq', 'morning')|list %}
+                {% set afternoon_records = day_records|selectattr('time_period', 'eq', 'afternoon')|list %}
+                {% set total_rows = morning_records|length + afternoon_records|length %}
+                
+                {% if total_rows == 0 %}
+                    <tr class="{{ 'table-active' if date == today }}">
+                        <td class="align-middle text-center">{{ date.strftime('%Y-%m-%d') }}<br><small class="text-muted">{{ date.strftime('%A') }}</small></td>
+                        <td class="align-middle text-center text-muted" colspan="4">无记录</td>
+                    </tr>
+                {% else %}
+                    {% for record in morning_records %}
+                        <tr class="{{ 'table-active' if date == today }}">
+                            {% if loop.first %}
+                                <td class="align-middle text-center" rowspan="{{ total_rows }}">
+                                    {{ date.strftime('%Y-%m-%d') }}<br>
+                                    <small class="text-muted">{{ date.strftime('%A') }}</small>
+                                </td>
+                            {% endif %}
+                            <td class="align-middle text-center text-primary">上午</td>
+                            <td class="align-middle text-center">{{ record.hours }}</td>
+                            <td class="align-middle">{{ record.project_name }}</td>
+                            <td class="align-middle">{{ record.description or '' }}</td>
+                        </tr>
+                    {% endfor %}
+                    
+                    {% for record in afternoon_records %}
+                        <tr class="{{ 'table-active' if date == today }}">
+                            {% if loop.first and not morning_records %}
+                                <td class="align-middle text-center" rowspan="{{ total_rows }}">
+                                    {{ date.strftime('%Y-%m-%d') }}<br>
+                                    <small class="text-muted">{{ date.strftime('%A') }}</small>
+                                </td>
+                            {% endif %}
+                            <td class="align-middle text-center text-success">下午</td>
+                            <td class="align-middle text-center">{{ record.hours }}</td>
+                            <td class="align-middle">{{ record.project_name }}</td>
+                            <td class="align-middle">{{ record.description or '' }}</td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

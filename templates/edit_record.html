@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">修改工时记录</h5>
+    </div>
+    <div class="card-body">
+        <form id="recordForm" method="POST">
+            <input type="hidden" name="next" value="{{ request.referrer }}">
+            
+            <div class="mb-3">
+                <label for="date" class="form-label">日期</label>
+                <input type="date" class="form-control" id="date" name="date" 
+                       value="{{ record.date.strftime('%Y-%m-%d') }}" required>
+            </div>
+            
+            <div class="mb-3">
+                <label for="time_period" class="form-label">时段</label>
+                <select class="form-control" id="time_period" name="time_period" required>
+                    <option value="morning" {{ 'selected' if record.time_period == 'morning' }}>上午</option>
+                    <option value="afternoon" {{ 'selected' if record.time_period == 'afternoon' }}>下午</option>
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="hours" class="form-label">工时</label>
+                <input type="number" class="form-control" id="hours" name="hours" 
+                       step="0.5" min="0.5" max="8" value="{{ record.hours }}" required>
+            </div>
+            
+            <div class="mb-3">
+                <label for="project_name" class="form-label">工作内容</label>
+                <input type="text" class="form-control" id="project_name" name="project_name" 
+                       value="{{ record.project_name }}" required>
+            </div>
+            
+            <div class="mb-3">
+                <label for="description" class="form-label">补充说明</label>
+                <textarea class="form-control" id="description" name="description" 
+                          rows="3">{{ record.description or '' }}</textarea>
+            </div>
+            
+            <div class="d-flex justify-content-between">
+                <button type="button" class="btn btn-secondary" onclick="history.back()">返回</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
