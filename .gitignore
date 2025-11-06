@@ -13,6 +13,9 @@ __pycache__/
 venv/
 env/
 ENV/
+.env
+.devcontainer/
+
 
 # Distribution / packaging
 dist/
