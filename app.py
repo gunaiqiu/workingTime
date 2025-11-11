@@ -614,8 +614,10 @@ def add_record():
 def manage_record(record_id):
     record = TimeRecord.query.get_or_404(record_id)
     
-    # 检查权限
-    if record.user_id != current_user.id:
+    # 检查权限：记录所有者或管理员可以访问
+    # 确保类型一致性比较
+    if int(record.user_id) != int(current_user.id) and current_user.username != 'admin':
+        app.logger.warning(f'Permission denied: record.user_id={record.user_id} (type:{type(record.user_id)}), current_user.id={current_user.id} (type:{type(current_user.id)}), username={current_user.username}')
         return jsonify({'status': 'error', 'message': '无权访问此记录'}), 403
     
     if request.method == 'GET':
